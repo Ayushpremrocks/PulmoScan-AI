@@ -13,7 +13,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-with open("styles/styles.css") as f:
+with open("styles/styles.css", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # 1. Page Configuration (Must be the first line)

@@ -3,7 +3,7 @@ from PIL import Image
 import torch
 import utils
 import os
-with open("styles/styles.css") as f:
+with open("styles/styles.css", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 # 1. Page Config
 st.set_page_config(page_title="ResNet50 Baseline", page_icon="📊", layout="wide")
