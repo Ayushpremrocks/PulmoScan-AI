@@ -8,7 +8,7 @@
 > Benchmarking **ResNet50 (Baseline)** vs. **DenseNet121 (Champion)** on Chest X-Rays.
 
 ---
-**Live Demo:** [pulmoscan.streamlit.app](https://pulmoscan.streamlit.app)
+**Live Demo:** [pulmoscan-ai-ayushpremrocks.streamlit.app](https://pulmoscan-ai-ayushpremrocks.streamlit.app)
 ---
 ## 📸 Project Demo
 ![home_page](./images/pulmoscan3.png)
@@ -60,7 +60,7 @@ We conducted a comparative study between a standard transfer-learning approach a
 
 ### 1. Clone the Repository
 ```
-git clone [https://github.com/Om-codex/Pneumonia-Screening-CXR-DL.git](https://github.com/Om-codex/Pneumonia-Screening-CXR-DL/)
+git clone https://github.com/ayushpremrocks/PulmoScan-AI.git
 ```
 ### 2. Install Dependencies
 ```
@@ -72,18 +72,20 @@ streamlit run Home.py
 ```
 
 ##  📂 Project Structure
-Pneumonia-Screening-CXR-DL/
+```
+PulmoScan-AI/
 ├── Home.py                   # Main Landing Page (Executive Summary)
 ├── utils.py                  # Core Logic (Model Loading, Grad-CAM, Preprocessing)
 ├── requirements.txt          # Python Dependencies
 ├── pages/                    # Multi-page App Structure
 │   ├── ResNet50_Baseline.py
 │   └── DenseNet121_Champion.py
-│── pneumonia_resnet_final.pth
-│── pneumonia_densenet_final.pth
+├── pneumonia_resnet_final.pth
+├── pneumonia_densenet_final.pth
 └── test_samples/             # Gallery Images for Demo
-    ├── normal_case.jpg  # 10 Normal Images
-    └── pneumonia_case.jpg # 10 Pneumonia Images
+    ├── normal_case.jpg       # 10 Normal Images
+    └── pneumonia_case.jpg    # 10 Pneumonia Images
+```
 
 ## 🧠 What I Learned
 
@@ -107,14 +109,12 @@ Pneumonia-Screening-CXR-DL/
 
 ## 🤝 Let's Connect
 
-**Om Mishra** *Machine Learning Enthusiast | Data Scientist*
+**Ayush Prem** *Machine Learning Enthusiast | Data Scientist*
 
 If you have any questions about this project, want to discuss the architecture, or are interested in collaboration, feel free to reach out!
 
-* 📧 **Email:** [omm512462@gmail.com](mailto:omm512462@gmail.com)
-* 👔 **LinkedIn:** [Om Mishra](https://www.linkedin.com/in/om-mishra-a55263329)
-* 🐙 **GitHub:** [Om-codex](https://github.com/Om-codex)
-* 🌐 **Portfolio:** [Om-Codex Portfolio](https://om-codex.netlify.app/)
+* 📧 **Email:** [ayushpremrocks@gmail.com](mailto:ayushpremrocks@gmail.com)
+* 👔 **LinkedIn:** [Ayush Prem](https://www.linkedin.com/in/ayushpremrocks)
+* 🐙 **GitHub:** [ayushpremrocks](https://github.com/ayushpremrocks)
   
 ### **Disclaimer:** This tool is for educational and research purposes only. It is not a substitute for professional medical diagnosis.
-"# PulmoScan-AI" 
