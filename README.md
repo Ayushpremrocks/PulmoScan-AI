@@ -45,13 +45,14 @@ Both models were fine-tuned from ImageNet weights and tested on the same held-ou
 ---
 
 ## 🚀 Key Features
-* **Multipage Streamlit app** with an Overview, one page per model, a side-by-side **Compare** page and a **Model evaluation** page.
-* **Explainable AI (Grad-CAM)** for *both* models, showing which lung regions drive a pneumonia prediction.
-* **Adjustable decision threshold** per model, defaulting to each model's tuned value (0.30 for DenseNet121, 0.70 for ResNet50).
-* **Model evaluation dashboard:** confusion matrix, sensitivity/specificity/precision at any threshold, ROC curves, and a matched-sensitivity comparison (needs `scripts/evaluate.py`, see below).
-* **Input checks:** warns when an upload doesn't look like a chest X-ray (colour image, odd shape, too small) and handles unreadable files.
-* **Sample gallery:** 20 test-set X-rays (10 normal, 10 pneumonia) for quick demos.
-* **Cached inference:** models load once, and predictions and heatmaps are cached per image.
+* **Analyze:** pick a sample or upload an X-ray, run DenseNet121, ResNet50 or **both** (flags disagreements), and see the result with a Grad-CAM heatmap.
+* **Image views:** heatmap overlay (adjustable opacity), original, or contrast-enhanced (CLAHE) view.
+* **Downloads:** a text screening report and the heatmap images.
+* **Session history:** every analysis in your session, exportable as CSV.
+* **Batch analysis:** screen many uploads (or all 20 sample cases) at once, with thumbnails, summary metrics and CSV export.
+* **Evaluation:** confusion matrix, ROC curves and a matched-sensitivity comparison (needs `scripts/evaluate.py`, see below).
+* **Input checks:** warns when an upload doesn't look like a chest X-ray and handles unreadable files.
+* **Clean light/dark theme** via `.streamlit/config.toml`, with no custom CSS.
 
 ---
 
@@ -92,20 +93,19 @@ This writes `evaluation/test_predictions.csv`, which the evaluation page reads.
 ## 📂 Project Structure
 ```
 PulmoScan-AI/
-├── Home.py                 # Entry point: page config, styles, navigation
+├── Home.py                 # Entry point: page config, logo, navigation
 ├── app_pages/
-│   ├── overview.py         # Project summary and benchmark results
-│   ├── densenet121.py      # Champion model analysis + Grad-CAM
-│   ├── resnet50.py         # Baseline model analysis + Grad-CAM
-│   ├── compare.py          # Both models on the same X-ray
-│   └── evaluation.py       # Confusion matrix, ROC, matched-sensitivity comparison
+│   ├── analyze.py          # Single X-ray analysis, heatmaps, report, history
+│   ├── batch.py            # Batch screening with CSV export
+│   ├── evaluation.py       # Confusion matrix, ROC, matched-sensitivity comparison
+│   └── about.py            # Project summary, results, method, limitations
 ├── config.py               # Paths, model settings, reported metrics (single source of truth)
-├── inference.py            # Model loading, preprocessing, prediction, Grad-CAM (no Streamlit)
+├── inference.py            # Model loading, prediction, Grad-CAM, image helpers (no Streamlit)
 ├── metrics.py              # Sensitivity/specificity/ROC/AUC helpers
 ├── ui.py                   # Shared Streamlit components
 ├── scripts/evaluate.py     # Batch-score a labelled test folder → CSV
-├── styles/styles.css       # Custom dark theme
-├── .streamlit/config.toml  # Streamlit theme and server settings
+├── assets/logo.svg
+├── .streamlit/config.toml  # Theme and server settings
 ├── pneumonia_densenet_final.pth
 ├── pneumonia_resnet_final.pth
 └── test_samples/           # 10 normal + 10 pneumonia demo X-rays

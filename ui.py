@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import io
 import re
+from datetime import datetime
 
 import numpy as np
 import streamlit as st
@@ -12,6 +16,8 @@ import config
 import inference
 
 DISPLAY_MAX_PX = 900
+MODEL_CHOICES = ["densenet121", "resnet50", "both"]
+DISCLAIMER = "For education and research only. Not a medical device and not a substitute for a clinician's diagnosis."
 
 
 # ---------- Cached model work ----------
@@ -23,7 +29,7 @@ def get_model(model_key: str):
     return inference.load_model(model_key, spec.weights_path)
 
 
-@st.cache_data(max_entries=64, show_spinner=False)
+@st.cache_data(max_entries=256, show_spinner=False)
 def pneumonia_probability(model_key: str, image_bytes: bytes) -> float:
     image = inference.open_image(image_bytes)
     return float(inference.predict_proba(get_model(model_key), inference.preprocess(image))[0])
@@ -36,31 +42,77 @@ def gradcam_map(model_key: str, image_bytes: bytes) -> np.ndarray:
     return inference.grad_cam(model, inference.gradcam_target_layer(model, model_key), tensor)
 
 
-# ---------- Page chrome ----------
+# ---------- Small helpers ----------
 
 
-def load_styles() -> None:
-    st.html(f"<style>{config.STYLES_PATH.read_text(encoding='utf-8')}</style>")
+def model_label(choice: str) -> str:
+    return "Both models" if choice == "both" else config.MODELS[choice].name
 
 
-def hero(title: str, subtitle: str) -> None:
-    st.html(f'<div><h1 class="hero-text">{title}</h1><h3 class="subheading">{subtitle}</h3></div>')
+def selected_models(choice: str) -> list[str]:
+    return list(config.MODELS) if choice == "both" else [choice]
+
+
+def is_pneumonia(probability: float, threshold: float) -> bool:
+    return probability > threshold
+
+
+def verdict(probability: float, threshold: float) -> str:
+    return "Pneumonia suspected" if is_pneumonia(probability, threshold) else "Normal"
+
+
+def image_id(image_bytes: bytes) -> str:
+    return hashlib.sha1(image_bytes).hexdigest()[:12]
+
+
+def display_copy(image: Image.Image) -> Image.Image:
+    small = image.copy()
+    small.thumbnail((DISPLAY_MAX_PX, DISPLAY_MAX_PX))
+    return small
+
+
+def thumbnail_data_uri(image: Image.Image, size: int = 96) -> str:
+    thumb = image.copy()
+    thumb.thumbnail((size, size))
+    buffer = io.BytesIO()
+    thumb.save(buffer, format="JPEG", quality=80)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
+
+
+def page_header(title: str, icon: str, subtitle: str) -> None:
+    st.title(title, icon=icon)
+    st.caption(subtitle)
+
+
+# ---------- Settings ----------
 
 
 def threshold_slider(model_key: str, key: str) -> float:
     spec = config.MODELS[model_key]
     return st.slider(
-        f"{spec.name} decision threshold",
+        f"{spec.name} threshold",
         min_value=0.0,
         max_value=1.0,
         value=spec.default_threshold,
         step=0.05,
         key=key,
         help=(
-            "An X-ray is flagged as pneumonia when the model's score is above this value. "
-            "Lower values catch more cases but raise more false alarms. "
-            f"The tuned value for {spec.name} is {spec.default_threshold:.2f}."
+            "An X-ray is flagged when the model's pneumonia score is above this value. "
+            "Lower catches more cases but raises more false alarms. "
+            f"Tuned value: {spec.default_threshold:.2f}."
         ),
+    )
+
+
+def model_picker(key: str) -> str:
+    return st.segmented_control(
+        "Model",
+        MODEL_CHOICES,
+        format_func=model_label,
+        default="densenet121",
+        required=True,
+        key=key,
+        help="DenseNet121 is tuned for high sensitivity. ResNet50 is the baseline.",
     )
 
 
@@ -72,9 +124,17 @@ def _sample_sort_key(name: str) -> tuple[str, int]:
     return (match.group(1), int(match.group(2))) if match else (name, 0)
 
 
-def _sample_label(name: str) -> str:
+def sample_label(name: str) -> str:
     match = re.match(r"([a-z]+)_(\d+)", name)
     return f"{match.group(1).capitalize()} case {match.group(2)}" if match else name
+
+
+def sample_true_label(name: str) -> str | None:
+    if name.startswith("pneumonia"):
+        return "Pneumonia"
+    if name.startswith("normal"):
+        return "Normal"
+    return None
 
 
 def sample_files() -> list[str]:
@@ -85,37 +145,39 @@ def sample_files() -> list[str]:
 
 
 def image_input(key_prefix: str) -> tuple[bytes, str] | None:
-    """Let the user upload an X-ray or pick a sample. Returns (image bytes, caption)."""
-    with st.container(border=True):
-        source = st.segmented_control(
-            "Image source",
-            ["sample", "upload"],
-            format_func={"sample": ":material/image: Sample case", "upload": ":material/upload: Upload"}.get,
-            default="sample",
-            required=True,
-            key=f"{key_prefix}_source",
+    """Upload an X-ray or pick a sample. Returns (image bytes, display name)."""
+    source = st.segmented_control(
+        "Image",
+        ["sample", "upload"],
+        format_func={"sample": ":material/photo_library: Sample", "upload": ":material/upload: Upload"}.get,
+        default="sample",
+        required=True,
+        key=f"{key_prefix}_source",
+    )
+    if source == "upload":
+        uploaded = st.file_uploader(
+            "Chest X-ray",
+            type=["jpg", "jpeg", "png"],
+            key=f"{key_prefix}_upload",
+            label_visibility="collapsed",
         )
-        if source == "upload":
-            uploaded = st.file_uploader(
-                "Chest X-ray", type=["jpg", "jpeg", "png"], key=f"{key_prefix}_upload"
-            )
-            if uploaded is None:
-                st.caption("Upload a frontal chest X-ray (JPEG or PNG).")
-                return None
-            return uploaded.getvalue(), uploaded.name
-
-        samples = sample_files()
-        if not samples:
-            st.error(f"No sample images found in `{config.SAMPLES_DIR.name}/`.")
+        if uploaded is None:
             return None
-        name = st.selectbox(
-            "Sample case",
-            samples,
-            format_func=_sample_label,
-            key=f"{key_prefix}_sample",
-            help="Images from the held-out test set. The file name gives the true diagnosis.",
-        )
-        return (config.SAMPLES_DIR / name).read_bytes(), f"Sample: {_sample_label(name)}"
+        return uploaded.getvalue(), uploaded.name
+
+    samples = sample_files()
+    if not samples:
+        st.error(f"No sample images found in `{config.SAMPLES_DIR.name}/`.")
+        return None
+    name = st.selectbox(
+        "Sample case",
+        samples,
+        format_func=sample_label,
+        key=f"{key_prefix}_sample",
+        label_visibility="collapsed",
+        help="X-rays from the held-out test set. The name gives the true diagnosis.",
+    )
+    return (config.SAMPLES_DIR / name).read_bytes(), sample_label(name)
 
 
 def checked_image(image_bytes: bytes, key_prefix: str) -> Image.Image | None:
@@ -123,14 +185,14 @@ def checked_image(image_bytes: bytes, key_prefix: str) -> Image.Image | None:
     try:
         image = inference.open_image(image_bytes)
     except (UnidentifiedImageError, OSError):
-        st.error("This file couldn't be read as an image. Upload a JPEG or PNG chest X-ray.")
+        st.error("This file couldn't be read as an image. Upload a JPEG or PNG chest X-ray.", icon=":material/error:")
         return None
 
     problems = inference.xray_warnings(image)
     if problems:
         st.warning(
             "\n".join(f"- {p}" for p in problems)
-            + "\n\nThe models were trained only on chest X-rays. For anything else their output is meaningless.",
+            + "\n\nThe models were trained only on chest X-rays, so results for other images are meaningless.",
             title="This may not be a chest X-ray",
             icon=":material/warning:",
         )
@@ -139,87 +201,67 @@ def checked_image(image_bytes: bytes, key_prefix: str) -> Image.Image | None:
     return image
 
 
-def display_copy(image: Image.Image) -> Image.Image:
-    small = image.copy()
-    small.thumbnail((DISPLAY_MAX_PX, DISPLAY_MAX_PX))
-    return small
-
-
 # ---------- Results ----------
 
 
-def render_result(model_key: str, probability: float, threshold: float) -> None:
+def result_card(model_key: str, probability: float, threshold: float) -> None:
     spec = config.MODELS[model_key]
     with st.container(border=True):
-        st.markdown(f"**{spec.name}**")
-        if probability > threshold:
-            st.error(
-                "Findings consistent with pneumonia. Refer for clinical review.",
-                title="Pneumonia suspected",
-                icon=":material/warning:",
-            )
-        else:
-            st.success(
-                "Score is below the decision threshold.",
-                title="Normal",
-                icon=":material/check_circle:",
-            )
+        with st.container(horizontal=True, vertical_alignment="center"):
+            st.markdown(f"**{spec.name}**")
+            st.space("stretch")
+            if is_pneumonia(probability, threshold):
+                st.badge("Pneumonia suspected", icon=":material/warning:", color="red")
+            else:
+                st.badge("Normal", icon=":material/check_circle:", color="green")
         st.metric(
             "Pneumonia score",
             f"{probability:.1%}",
-            help="The model's softmax output. It is not a calibrated clinical probability.",
+            help="The model's softmax output. It isn't a calibrated clinical probability.",
         )
         st.progress(min(max(probability, 0.0), 1.0))
-        st.caption(f"Flagged as pneumonia when the score is above {threshold:.0%}.")
+        st.caption(f"Flagged above {threshold:.0%} · {spec.role}")
 
 
-def render_gradcam(model_key: str, image_bytes: bytes, image: Image.Image, *, side_by_side: bool = True) -> None:
-    with st.spinner("Generating attention map…"):
-        heatmap = gradcam_map(model_key, image_bytes)
-    shown = display_copy(image)
-    overlay = inference.overlay_heatmap(heatmap, shown)
-    name = config.MODELS[model_key].name
-    if side_by_side:
-        raw = inference.colorize_heatmap(heatmap, shown.size)
-        c1, c2 = st.columns(2)
-        c1.image(raw, caption="Attention map", width="stretch", alt=f"{name} Grad-CAM attention map")
-        c2.image(overlay, caption="Overlay on X-ray", width="stretch", alt=f"{name} Grad-CAM overlay on the X-ray")
-    else:
-        st.image(overlay, caption=f"{name} Grad-CAM overlay", width="stretch", alt=f"{name} Grad-CAM overlay on the X-ray")
+def build_report(name: str, results: dict[str, float], thresholds: dict[str, float]) -> str:
+    lines = [
+        "PulmoScan AI: screening report",
+        "=" * 34,
+        f"Date:  {datetime.now():%Y-%m-%d %H:%M}",
+        f"Image: {name}",
+        "",
+    ]
+    for key, probability in results.items():
+        spec = config.MODELS[key]
+        lines += [
+            f"{spec.name}",
+            f"  Result:          {verdict(probability, thresholds[key])}",
+            f"  Pneumonia score: {probability:.1%}",
+            f"  Threshold:       {thresholds[key]:.2f}",
+            "",
+        ]
+    lines += [DISCLAIMER]
+    return "\n".join(lines)
 
 
 GRADCAM_EXPLANATION = (
-    "Red areas push the model towards **pneumonia**; blue areas have little influence. "
-    "The map is computed on a 7×7 grid and upscaled, so it shows rough regions, not exact lesions. "
-    "Attention outside the lungs (labels, borders) is a warning sign that the model is using shortcuts."
+    "Warm colours show the regions that push the model towards **pneumonia**. "
+    "The map is computed on a 7×7 grid and upscaled, so it shows rough areas, not exact lesions. "
+    "Heat outside the lungs (labels, edges) suggests the model is relying on shortcuts."
 )
 
 
-def model_page(model_key: str) -> None:
-    """Full single-model analysis page."""
-    spec = config.MODELS[model_key]
-    with st.sidebar:
-        threshold = threshold_slider(model_key, key=f"{model_key}_page_threshold")
+# ---------- Session history ----------
 
-    picked = image_input(key_prefix=model_key)
-    if picked is None:
+
+def record_history(entry: dict) -> None:
+    """Add an analysis to this browser session's history, skipping exact repeats."""
+    history = st.session_state.setdefault("history", [])
+    key = (entry["Image ID"], entry["Model"], entry["Threshold"])
+    if any((h["Image ID"], h["Model"], h["Threshold"]) == key for h in history):
         return
-    image_bytes, caption = picked
-    image = checked_image(image_bytes, key_prefix=model_key)
-    if image is None:
-        return
+    history.append(entry)
 
-    with st.spinner("Analyzing lung patterns…"):
-        probability = pneumonia_probability(model_key, image_bytes)
 
-    col_image, col_result = st.columns(2)
-    with col_image:
-        st.image(display_copy(image), caption=caption, width="stretch", alt="Chest X-ray being analyzed")
-    with col_result:
-        render_result(model_key, probability, threshold)
-
-    st.subheader("Explainable AI (Grad-CAM)")
-    if st.toggle("Show heatmap analysis", value=True, key=f"{model_key}_show_gradcam"):
-        render_gradcam(model_key, image_bytes, image)
-        st.caption(GRADCAM_EXPLANATION)
-    st.caption(f"{spec.name}: {spec.role}.")
+def clear_history() -> None:
+    st.session_state["history"] = []

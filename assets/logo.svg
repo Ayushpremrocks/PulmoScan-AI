@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 36" width="200" height="36">
+  <g fill="#0891B2">
+    <rect x="16" y="3" width="4" height="14" rx="2"/>
+    <path d="M15 14 C9 8 3 14 3 23 C3 30 6 33 10 33 C14 33 15 30 15 26 Z"/>
+    <path d="M21 14 C27 8 33 14 33 23 C33 30 30 33 26 33 C22 33 21 30 21 26 Z"/>
+  </g>
+  <text x="42" y="25" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="19" font-weight="700" fill="#0891B2">PulmoScan <tspan font-weight="400">AI</tspan></text>
+</svg>

@@ -6,7 +6,11 @@ import config
 import metrics
 import ui
 
-ui.hero("📈 Model evaluation", "How the threshold trades missed cases against false alarms")
+ui.page_header(
+    "Model evaluation",
+    ":material/analytics:",
+    "How the decision threshold trades missed cases against false alarms on the test set.",
+)
 
 
 @st.cache_data
@@ -56,12 +60,12 @@ else:
         thresholds = {key: ui.threshold_slider(key, key=f"eval_{key}_threshold") for key in model_keys}
 
     # ---- Metrics at the chosen thresholds ----
-    st.header("At your chosen thresholds")
+    st.subheader("At your chosen thresholds")
     for col, key in zip(st.columns(len(model_keys)), model_keys):
         spec = config.MODELS[key]
         c = metrics.confusion_at(labels, predictions[key].to_numpy(), thresholds[key])
         with col, st.container(border=True):
-            st.subheader(spec.name)
+            st.markdown(f"**{spec.name}**")
             st.caption(f"Threshold {thresholds[key]:.2f}")
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Sensitivity", f"{c.sensitivity:.1%}")
@@ -78,7 +82,7 @@ else:
             st.markdown(f"**{c.fn}** missed cases · **{c.fp}** false alarms")
 
     # ---- ROC curve ----
-    st.header("ROC curve")
+    st.subheader("ROC curve")
     roc_frames, points = [], []
     for key in model_keys:
         spec = config.MODELS[key]
@@ -121,7 +125,7 @@ else:
     st.caption("Dots mark the thresholds chosen in the sidebar. Up and to the left is better.")
 
     # ---- Fair comparison ----
-    st.header("Fair comparison at matched sensitivity")
+    st.subheader("Fair comparison at matched sensitivity")
     st.markdown(
         "Comparing models at different thresholds can make either one look better. Here each model gets "
         "the highest threshold that still reaches the target sensitivity, so you can compare false alarms directly."

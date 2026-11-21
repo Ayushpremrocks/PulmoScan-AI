@@ -7,7 +7,6 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 SAMPLES_DIR = BASE_DIR / "test_samples"
-STYLES_PATH = BASE_DIR / "styles" / "styles.css"
 EVAL_PREDICTIONS_PATH = BASE_DIR / "evaluation" / "test_predictions.csv"
 
 TEST_SET_SIZE = 624

@@ -136,6 +136,19 @@ def overlay_heatmap(heatmap: np.ndarray, image: Image.Image, alpha: float = 0.4)
     return cv2.addWeighted(img, 1 - alpha, colored, alpha, 0)
 
 
+def enhance_contrast(image: Image.Image) -> np.ndarray:
+    """CLAHE contrast enhancement, a common radiology viewing aid. Display only, not used by the models."""
+    gray = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2GRAY)
+    return cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+
+
+def to_png_bytes(array: np.ndarray) -> bytes:
+    ok, buffer = cv2.imencode(".png", cv2.cvtColor(array, cv2.COLOR_RGB2BGR) if array.ndim == 3 else array)
+    if not ok:
+        raise ValueError("Could not encode image")
+    return buffer.tobytes()
+
+
 def xray_warnings(image: Image.Image) -> list[str]:
     """Cheap checks that an image could plausibly be a chest X-ray.
 

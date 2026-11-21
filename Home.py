@@ -1,42 +1,37 @@
 import streamlit as st
 
+import config
 import ui
 
-st.set_page_config(page_title="PulmoScan AI", page_icon="🫁", layout="wide")
-ui.load_styles()
+st.set_page_config(page_title="PulmoScan AI", page_icon=":material/pulmonology:", layout="wide")
+st.logo(str(config.BASE_DIR / "assets" / "logo.svg"), size="large")
 
 page = st.navigation(
     [
         st.Page(
-            "app_pages/overview.py",
-            title="Overview",
-            icon=":material/home:",
+            "app_pages/analyze.py",
+            title="Analyze",
+            icon=":material/pulmonology:",
             default=True,
-            help="Project summary and benchmark results for both models.",
+            help="Analyze one chest X-ray with either or both models, with a Grad-CAM heatmap and a downloadable report.",
         ),
         st.Page(
-            "app_pages/densenet121.py",
-            title="DenseNet121",
-            icon=":material/trophy:",
-            help="Analyze an X-ray with the high-sensitivity champion model, with a Grad-CAM heatmap.",
-        ),
-        st.Page(
-            "app_pages/resnet50.py",
-            title="ResNet50",
-            icon=":material/bar_chart:",
-            help="Analyze an X-ray with the ResNet50 baseline model, with a Grad-CAM heatmap.",
-        ),
-        st.Page(
-            "app_pages/compare.py",
-            title="Compare",
-            icon=":material/compare_arrows:",
-            help="Run both models on the same X-ray and compare predictions and heatmaps.",
+            "app_pages/batch.py",
+            title="Batch",
+            icon=":material/stacks:",
+            help="Screen many X-rays at once and download the results as CSV.",
         ),
         st.Page(
             "app_pages/evaluation.py",
-            title="Model evaluation",
-            icon=":material/query_stats:",
+            title="Evaluation",
+            icon=":material/analytics:",
             help="Test-set confusion matrix, ROC curve and a fair matched-sensitivity comparison.",
+        ),
+        st.Page(
+            "app_pages/about.py",
+            title="About",
+            icon=":material/info:",
+            help="Project summary, benchmark results, method and limitations.",
         ),
     ],
     position="top",
@@ -45,7 +40,4 @@ page = st.navigation(
 page.run()
 
 st.divider()
-st.caption(
-    ":material/info: For education and research only. PulmoScan AI is not a medical device "
-    "and is not a substitute for diagnosis by a qualified clinician."
-)
+st.caption(f":material/info: {ui.DISCLAIMER}")
