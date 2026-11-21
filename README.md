@@ -28,63 +28,87 @@ Most standard models prioritize accuracy, often missing subtle cases. **PulmoSca
 ---
 
 ## 🔬 Model Performance
-We conducted a comparative study between a standard transfer-learning approach and a fine-tuned dense architecture.
+Both models were fine-tuned from ImageNet weights and tested on the same held-out set of **624 X-rays** (390 pneumonia, 234 normal).
 
-| Model Architecture | Role | Sensitivity (Recall) | False Alarms | Verdict |
-| :--- | :--- | :--- | :--- | :--- |
-| **ResNet50** | Baseline | 97.0% | High | ❌ Too Risky |
-| **DenseNet121** | **Champion** | **99.7%** | **Low** | **✅ Deployment Ready** |
+| Model | Role | Threshold | Sensitivity (Recall) | Specificity | Precision | ROC-AUC |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **ResNet50** | Baseline | 0.70 | 97.0% | 74% | 86% | 0.964 |
+| **DenseNet121** | **Champion (screening)** | 0.30 | **99.7%** | 51% | 77% | 0.961 |
 
-> **Key Result:** The Fine-Tuned DenseNet121 model successfully identified **389 out of 390** positive cases in the test set, significantly outperforming the baseline.
+> **Key result:** at its screening threshold, DenseNet121 caught **389 of 390** pneumonia cases (about 11 more than ResNet50).
+> The cost is false alarms: it flags about half of healthy patients (~115 of 234), compared with ~61 for ResNet50.
+> Both models rank X-rays about equally well (similar ROC-AUC), so the difference comes mostly from the chosen threshold.
+> The app's **Model evaluation** page compares them fairly at matched sensitivity.
+
+**Caveat:** the thresholds were tuned while looking at the test set, so these numbers are slightly optimistic.
 
 ---
 
 ## 🚀 Key Features
-* **Interactive Web App:** Built with Streamlit for real-time analysis.
-* **Dual-Model Testing:** Switch between the Baseline (ResNet) and Champion (DenseNet) models to see the performance difference live.
-* **Explainable AI (Grad-CAM):** Visualizes *where* the model is looking. Generates a heatmap overlay on the X-ray to highlight lung opacities.
-* **Dynamic Sensitivity:** Sidebar slider to adjust the decision threshold (0.0 - 1.0) for research purposes.
-* **Sample Gallery:** Built-in test cases for quick demonstration without needing external files.
+* **Multipage Streamlit app** with an Overview, one page per model, a side-by-side **Compare** page and a **Model evaluation** page.
+* **Explainable AI (Grad-CAM)** for *both* models, showing which lung regions drive a pneumonia prediction.
+* **Adjustable decision threshold** per model, defaulting to each model's tuned value (0.30 for DenseNet121, 0.70 for ResNet50).
+* **Model evaluation dashboard:** confusion matrix, sensitivity/specificity/precision at any threshold, ROC curves, and a matched-sensitivity comparison (needs `scripts/evaluate.py`, see below).
+* **Input checks:** warns when an upload doesn't look like a chest X-ray (colour image, odd shape, too small) and handles unreadable files.
+* **Sample gallery:** 20 test-set X-rays (10 normal, 10 pneumonia) for quick demos.
+* **Cached inference:** models load once, and predictions and heatmaps are cached per image.
 
 ---
 
 ## 🛠️ Tech Stack
 * **Deep Learning:** PyTorch, Torchvision
-* **Web Framework:** Streamlit
-* **Image Processing:** OpenCV (Headless), Pillow, Albumentations
-* **Visualization:** Matplotlib, Grad-CAM (Custom Implementation)
+* **Web Framework:** Streamlit (`st.navigation`), Altair charts
+* **Image Processing:** OpenCV (headless), Pillow
+* **Explainability:** Grad-CAM (custom implementation)
 
 ---
 
 ## 💻 Installation & Setup
 
-### 1. Clone the Repository
+### 1. Clone the repository
 ```
 git clone https://github.com/ayushpremrocks/PulmoScan-AI.git
+cd PulmoScan-AI
 ```
-### 2. Install Dependencies
+### 2. Create a virtual environment and install dependencies
 ```
-pip install -r requirements.txt
+python -m venv .venv
+.venv\Scripts\activate          # Windows  (macOS/Linux: source .venv/bin/activate)
+python -m pip install -r requirements.txt
 ```
-### 3. Run the App
+### 3. Run the app
 ```
-streamlit run Home.py
+python -m streamlit run Home.py
 ```
+Using `python -m ...` also works on machines where Windows Application Control blocks the `pip.exe` / `streamlit.exe` launchers.
 
-##  📂 Project Structure
+### 4. (Optional) Enable the Model evaluation page
+Download the [Chest X-Ray Images (Pneumonia)](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia) dataset, then score its test split:
+```
+python scripts/evaluate.py --data-dir path/to/chest_xray/test
+```
+This writes `evaluation/test_predictions.csv`, which the evaluation page reads.
+
+## 📂 Project Structure
 ```
 PulmoScan-AI/
-├── Home.py                   # Main Landing Page (Executive Summary)
-├── utils.py                  # Core Logic (Model Loading, Grad-CAM, Preprocessing)
-├── requirements.txt          # Python Dependencies
-├── pages/                    # Multi-page App Structure
-│   ├── ResNet50_Baseline.py
-│   └── DenseNet121_Champion.py
-├── pneumonia_resnet_final.pth
+├── Home.py                 # Entry point: page config, styles, navigation
+├── app_pages/
+│   ├── overview.py         # Project summary and benchmark results
+│   ├── densenet121.py      # Champion model analysis + Grad-CAM
+│   ├── resnet50.py         # Baseline model analysis + Grad-CAM
+│   ├── compare.py          # Both models on the same X-ray
+│   └── evaluation.py       # Confusion matrix, ROC, matched-sensitivity comparison
+├── config.py               # Paths, model settings, reported metrics (single source of truth)
+├── inference.py            # Model loading, preprocessing, prediction, Grad-CAM (no Streamlit)
+├── metrics.py              # Sensitivity/specificity/ROC/AUC helpers
+├── ui.py                   # Shared Streamlit components
+├── scripts/evaluate.py     # Batch-score a labelled test folder → CSV
+├── styles/styles.css       # Custom dark theme
+├── .streamlit/config.toml  # Streamlit theme and server settings
 ├── pneumonia_densenet_final.pth
-└── test_samples/             # Gallery Images for Demo
-    ├── normal_case.jpg       # 10 Normal Images
-    └── pneumonia_case.jpg    # 10 Pneumonia Images
+├── pneumonia_resnet_final.pth
+└── test_samples/           # 10 normal + 10 pneumonia demo X-rays
 ```
 
 ## 🧠 What I Learned
@@ -101,7 +125,7 @@ PulmoScan-AI/
 
 ### 3. Medical AI Metrics & Trade-offs
 * **The Cost of a Miss:** I learned that in healthcare, **Accuracy is a vanity metric.** A model with 95% accuracy is useless if it misses the 5% of sick patients.
-* **Optimizing for Recall:** I deliberately tuned the decision threshold and architecture choice to maximize **Recall (Sensitivity)**. Achieving **0 False Negatives** on the test set was the primary success criterion, even if it meant tolerating a slightly higher false positive rate (which is acceptable for a screening tool).
+* **Optimizing for Recall:** I deliberately tuned the decision threshold and architecture choice to maximize **Recall (Sensitivity)**. Missing at most a handful of cases on the test set (1 of 390) was the primary success criterion, even though it meant accepting many more false positives (acceptable for a first-line screening tool, as long as that cost is reported honestly).
 
 ### 4. Full-Stack ML Engineering
 * **Latency Optimization:** Deploying large PyTorch models on a CPU-based cloud environment introduced significant lag. I solved this by implementing Streamlit's `@st.cache_resource` to load the 30MB+ models into memory only once, reducing inference time from **~5s to <1s**.
